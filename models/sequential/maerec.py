@@ -15,7 +15,8 @@ def sparse_dropout(x, keep_prob):
     msk = (t.rand(x._values().size()) + keep_prob).floor().type(t.bool)
     idx = x._indices()[:, msk]
     val = x._values()[msk]
-    return t.sparse.FloatTensor(idx, val, x.shape).cuda()
+    # return t.sparse.FloatTensor(idx, val, x.shape).cuda()
+    return t.sparse_coo_tensor(idx, val, x.shape).cuda()
 
 class TransformerEmbed(nn.Module):
     def __init__(self, item_num, emb_size, max_len, dropout=0.1):
@@ -173,7 +174,8 @@ class RandomMaskSubgraphs(nn.Module):
         newRows, newCols = adj._indices()[0, :], adj._indices()[1, :]
         rowNorm, colNorm = degree[newRows], degree[newCols]
         newVals = adj._values() * rowNorm * colNorm
-        return t.sparse.FloatTensor(adj._indices(), newVals, adj.shape)
+        # return t.sparse.FloatTensor(adj._indices(), newVals, adj.shape)
+        return t.sparse_coo_tensor(adj._indices(), newVals, adj.shape)
 
     def forward(self, adj, seeds):
         rows = adj._indices()[0, :]
@@ -209,7 +211,8 @@ class RandomMaskSubgraphs(nn.Module):
         masked_rows = t.unsqueeze(t.LongTensor(masked_rows), -1)
         masked_cols = t.unsqueeze(t.LongTensor(masked_cols), -1)
         masked_edge = t.hstack([masked_rows, masked_cols])
-        encoder_adj = self.normalize(t.sparse.FloatTensor(t.stack([rows, cols], dim=0), t.ones_like(rows).cuda(), adj.shape))
+        # encoder_adj = self.normalize(t.sparse.FloatTensor(t.stack([rows, cols], dim=0), t.ones_like(rows).cuda(), adj.shape))
+        encoder_adj = self.normalize(t.sparse_coo_tensor(t.stack([rows, cols], dim=0), t.ones_like(rows).cuda(), adj.shape))
 
         return encoder_adj, masked_edge
 
@@ -275,13 +278,15 @@ class MAERec(BaseModel):
         idxs = t.from_numpy(np.vstack([mat.row, mat.col]).astype(np.int64))
         vals = t.from_numpy(mat.data.astype(np.float32))
         shape = t.Size(mat.shape)
-        return t.sparse.FloatTensor(idxs, vals, shape).cuda()
+        # return t.sparse.FloatTensor(idxs, vals, shape).cuda()
+        return t.sparse_coo_tensor(idxs, vals, shape).cuda()
 
     def make_all_one_adj(self, adj):
         idxs = adj._indices()
         vals = t.ones_like(adj._values())
         shape = adj.shape
-        return t.sparse.FloatTensor(idxs, vals, shape).cuda()
+        # return t.sparse.FloatTensor(idxs, vals, shape).cuda()
+        return t.sparse_coo_tensor(idxs, vals, shape).cuda()
     
     def prepare_model(self):
         self.encoder = Encoder().cuda()

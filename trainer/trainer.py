@@ -95,6 +95,7 @@ class Trainer(object):
                 # evaluate
                 if epoch_idx % train_config['test_step'] == 0:
                     self.evaluate(model, epoch_idx)
+                    # self.save_model(model)
             self.test(model)
             self.save_model(model)
             return model
@@ -116,6 +117,7 @@ class Trainer(object):
                         best_epoch = epoch_idx
                         best_metric = eval_result[configs['test']['metrics'][0]][0]
                         best_state_dict = deepcopy(model.state_dict())
+                        self.save_model(model)
                         self.logger.log("Validation score increased.  Copying the best model ...")
                     else:
                         now_patience += 1
@@ -127,13 +129,13 @@ class Trainer(object):
 
             # re-initialize the model and load the best parameter
             self.logger.log("Best Epoch {}".format(best_epoch))
-            model = build_model(self.data_handler).to(configs['device'])
-            model.load_state_dict(best_state_dict)
-            self.evaluate(model)
+            # model = build_model(self.data_handler).to(configs['device'])
+            # model.load_state_dict(best_state_dict)
+            # self.evaluate(model)
             model = build_model(self.data_handler).to(configs['device'])
             model.load_state_dict(best_state_dict)
             self.test(model)
-            self.save_model(model)
+            self.save_model(model, best=True)
             return model
 
     @log_exceptions
@@ -161,27 +163,42 @@ class Trainer(object):
             raise NotImplemented
         return eval_result
 
-    def save_model(self, model):
+    def save_model(self, model, best=None):        
         if configs['train']['save_model']:
             model_state_dict = model.state_dict()
             model_name = configs['model']['name']
             data_name = configs['data']['name']
+            
+            state = {
+                'config': configs,
+                'state_dict': model_state_dict,
+                'optimizer': self.optimizer.state_dict()
+            }
+
             if not configs['tune']['enable']:
                 save_dir_path = './checkpoint/{}'.format(model_name)
                 if not os.path.exists(save_dir_path):
                     os.makedirs(save_dir_path)
-                timestamp = int(time.time())
-                torch.save(
-                    model_state_dict, '{}/{}-{}-{}.pth'.format(save_dir_path, model_name, data_name, timestamp))
-                self.logger.log("Save model parameters to {}".format(
-                    '{}/{}-{}.pth'.format(save_dir_path, model_name, timestamp)))
+                    
+                if best == True:
+                    timestamp = int(time.time())
+                    torch.save(
+                        state, '{}/{}-{}-{}-best.pth'.format(save_dir_path, model_name, data_name, timestamp))
+                    self.logger.log("Save model parameters to {}".format(
+                        '{}/{}-{}-best.pth'.format(save_dir_path, model_name, timestamp)))
+                else:
+                    timestamp = int(time.time())
+                    torch.save(
+                        state, '{}/{}-{}-{}.pth'.format(save_dir_path, model_name, data_name, timestamp))
+                    self.logger.log("Save model parameters to {}".format(
+                        '{}/{}-{}.pth'.format(save_dir_path, model_name, timestamp)))
             else:
                 save_dir_path = './checkpoint/{}/tune'.format(model_name)
                 if not os.path.exists(save_dir_path):
                     os.makedirs(save_dir_path)
                 now_para_str = configs['tune']['now_para_str']
                 torch.save(
-                    model_state_dict, '{}/{}-{}-{}.pth'.format(save_dir_path, model_name, data_name, now_para_str))
+                    state, '{}/{}-{}-{}.pth'.format(save_dir_path, model_name, data_name, now_para_str))
                 self.logger.log("Save model parameters to {}".format(
                     '{}/{}-{}.pth'.format(save_dir_path, model_name, now_para_str)))
 
@@ -1307,5 +1324,3 @@ class DiffKGTrainer(Trainer):
             self.logger.log_loss(epoch_idx, loss_log_dict)
         else:
             self.logger.log_loss(epoch_idx, loss_log_dict, save_to_log=False)
-
-        

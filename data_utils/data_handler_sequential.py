@@ -16,6 +16,9 @@ class DataHandlerSequential:
         elif configs['data']['name'] == 'sports':
             predir = './datasets/sequential/sports_seq/'
             configs['data']['dir'] = predir
+        elif configs['data']['name'] == 'gsshop':
+            predir = './datasets/sequential/gsshop/'
+            configs['data']['dir'] = predir
             
         self.trn_file = path.join(predir, 'train.tsv')
         self.val_file = path.join(predir, 'test.tsv')
@@ -73,6 +76,6 @@ class DataHandlerSequential:
             trn_data = SequentialDataset(user_seqs_train)
         tst_data = SequentialDataset(user_seqs_test, mode='test')
         self.test_dataloader = data.DataLoader(
-            tst_data, batch_size=configs['test']['batch_size'], shuffle=False, num_workers=0)
+            tst_data, batch_size=configs['test']['batch_size'], shuffle=False, num_workers=configs['test']['workers'], pin_memory=True)
         self.train_dataloader = data.DataLoader(
-            trn_data, batch_size=configs['train']['batch_size'], shuffle=True, num_workers=0)
+            trn_data, batch_size=configs['train']['batch_size'], shuffle=True, num_workers=configs['train']['workers'], pin_memory=True)
